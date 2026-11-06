@@ -3,8 +3,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { extractUrl, identifyPlatform, getStandardQualityOptions, evaluateWebhookCheckStatus, type IdentifiedSong } from './mediaParser.ts';
 import { extractMediaInfo, downloadMedia, getDirectStreamUrl, identifySongFromMedia, downloadInstagramPost } from './mediaDownloader.ts';
-import { loadBotConfig, type RequiredChannel } from './configManager.ts';
+import { loadBotConfig, isUserAdmin, registerUserId, type RequiredChannel } from './configManager.ts';
 import { extractSpotifyInfo, downloadSpotifyTrack } from './spotifyResolver.ts';
+import { sendAdminDashboard, handleAdminCallbackQuery, handleAdminMessageStep } from './adminPanel.ts';
 
 export interface BotActivityLog {
   id: string;
@@ -108,7 +109,7 @@ function savePendingRequests() {
 
 loadPendingRequests();
 
-function addLog(
+export function addLog(
   action: string,
   details: string,
   status: 'pending' | 'success' | 'error' = 'success',
@@ -200,6 +201,23 @@ export class TelegramClient {
       text,
       parse_mode: 'HTML',
       ...extra,
+    });
+  }
+
+  async copyMessage(chatId: number | string, fromChatId: number | string, messageId: number, extra: any = {}) {
+    return this.callApi('copyMessage', {
+      chat_id: chatId,
+      from_chat_id: fromChatId,
+      message_id: messageId,
+      ...extra,
+    });
+  }
+
+  async forwardMessage(chatId: number | string, fromChatId: number | string, messageId: number) {
+    return this.callApi('forwardMessage', {
+      chat_id: chatId,
+      from_chat_id: fromChatId,
+      message_id: messageId,
     });
   }
 
@@ -367,14 +385,20 @@ export class TelegramClient {
 /**
  * Standard persistent Reply Keyboard
  */
-function getPersistentReplyKeyboard() {
+function getPersistentReplyKeyboard(userId?: number | string) {
+  const keyboard: any[] = [
+    [{ text: '☕️ قهوه مهمونم کن' }, { text: '📖 آموزش استفاده' }],
+    [{ text: '💡 ارسال پیشنهادات' }],
+    [{ text: '📊 آمار من' }, { text: '🎫 پشتیبانی' }],
+    [{ text: '🌐 زبان / Language' }],
+  ];
+
+  if (userId && isUserAdmin(userId)) {
+    keyboard.unshift([{ text: '👑 پنل مدیریت ربات (ادمین)' }]);
+  }
+
   return {
-    keyboard: [
-      [{ text: '☕️ قهوه مهمونم کن' }, { text: '📖 آموزش استفاده' }],
-      [{ text: '💡 ارسال پیشنهادات' }],
-      [{ text: '📊 آمار من' }, { text: '🎫 پشتیبانی' }],
-      [{ text: '🌐 زبان / Language' }],
-    ],
+    keyboard,
     resize_keyboard: true,
     is_persistent: true,
   };
@@ -419,6 +443,10 @@ export async function testChannelAccess(channelId: string): Promise<{ success: b
  * Verify if user is member of all mandatory channels (Force Subscribe / اد اجباری)
  */
 async function checkUserMembership(client: TelegramClient, userId: number | string): Promise<{ isMember: boolean; pendingChannels: RequiredChannel[] }> {
+  if (isUserAdmin(userId)) {
+    return { isMember: true, pendingChannels: [] };
+  }
+
   const config = loadBotConfig();
   if (!config.forceJoinEnabled || !config.channels || config.channels.length === 0) {
     return { isMember: true, pendingChannels: [] };
@@ -507,7 +535,7 @@ async function sendStartMessage(client: TelegramClient, chatId: number | string,
 
   await client.sendMessage(chatId, startMsg, {
     parse_mode: 'HTML',
-    reply_markup: getPersistentReplyKeyboard(),
+    reply_markup: getPersistentReplyKeyboard(chatId),
   });
 }
 
@@ -524,6 +552,28 @@ async function handleIncomingMessage(client: TelegramClient, msg: any) {
 
   state.totalRequests++;
   state.uniqueUsers.add(userId);
+  registerUserId(userId);
+
+  // 1. If admin is currently in an interactive input step (broadcast, adding channel, etc.)
+  if (isUserAdmin(userId)) {
+    const handledStep = await handleAdminMessageStep(client, msg);
+    if (handledStep) return;
+  }
+
+  // 2. Admin Panel Command / Button Check
+  if (text === '👑 پنل مدیریت ربات (ادمین)' || text === '/admin' || text === '/panel') {
+    if (isUserAdmin(userId)) {
+      await sendAdminDashboard(client, chatId);
+      return;
+    } else {
+      await client.sendMessage(
+        chatId,
+        `⛔️ <b>دسترسی غیرمجاز!</b>\nاین بخش اختصاصی است و فقط توسط مدیر ربات با شناسه عددی <code>567645818</code> قابل دسترسی و کنترل می‌باشد.\n\n🆔 شناسه کاربری شما: <code>${userId}</code>`,
+        { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) }
+      );
+      return;
+    }
+  }
 
   // Check persistent reply buttons
   if (text === '📖 آموزش استفاده') {
@@ -831,6 +881,12 @@ async function handleCallbackQuery(client: TelegramClient, query: any) {
 
   if (!chatId) return;
 
+  // Handle In-Bot Admin Panel Callbacks
+  if (data.startsWith('adm:')) {
+    const handledAdmin = await handleAdminCallbackQuery(client, query);
+    if (handledAdmin) return;
+  }
+
   // Handle Force Subscribe Verification Button
   if (data === 'verify_sub') {
     const membership = await checkUserMembership(client, userId);
@@ -1062,7 +1118,11 @@ ${escapeHtml(reqData.title.slice(0, 120))}
         await client.editMessageText(chatId, progressMsg.message_id, '❌ <b>متاسفانه در دریافت فایل این ویدیو خطایی رخ داد.</b>\nلطفاً مجدد تلاش کنید یا لینک دیگری ارسال فرمایید.', { parse_mode: 'HTML' });
       }
     }
+    return;
   }
+
+  // Fallback: always answer unknown callback queries so Telegram stops the button spinner
+  await client.answerCallbackQuery(query.id).catch(() => null);
 }
 
 /**
@@ -1091,16 +1151,28 @@ async function startPollingLoop(client: TelegramClient) {
       }
       const errMsg = String(err?.message || err);
       // Self-heal if an external webhook was registered that blocks getUpdates
-      if (errMsg.toLowerCase().includes('webhook') || errMsg.toLowerCase().includes('getupdates')) {
+      const isWebhookConflict = errMsg.toLowerCase().includes('can\'t use getupdates method while webhook is active') || 
+                                (errMsg.toLowerCase().includes('webhook') && !errMsg.toLowerCase().includes('terminated by other'));
+      if (isWebhookConflict) {
         try {
           await client.deleteWebhook(false);
           state.isWebhookMode = false;
           state.webhookUrl = null;
           state.lastError = null;
           addLog('ترمیم خودکار اتصال', 'وب‌هوک مسدودکننده پاک شد و دریافت پیام‌ها (Polling) ادامه یافت.');
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         } catch {}
       }
+
+      const isMultipleInstanceConflict = errMsg.toLowerCase().includes('terminated by other getupdates') || errMsg.toLowerCase().includes('conflict');
+      if (isMultipleInstanceConflict) {
+        console.warn('Telegram polling conflict: another instance (e.g. AWS production) is running. Backing off 45s...');
+        state.lastError = 'ربات روی سرور اصلی شما فعال است (حالت استندبای)';
+        await new Promise(r => setTimeout(r, 45000));
+        continue;
+      }
+
       console.warn('Telegram polling retry:', errMsg);
       state.lastError = errMsg || 'Polling error';
       await new Promise(r => setTimeout(r, 3000));
@@ -1307,6 +1379,17 @@ export async function simulateBotResponse(userMessage: string) {
         keyboard: [
           [{ label: '➕ افزودن ربات به گروه', data: 'add_group' }],
           [{ label: '📢 چنل اصلی ↗️', data: 'main_channel' }]
+        ]
+      };
+    }
+    if (userMessage.includes('/admin') || userMessage.includes('پنل')) {
+      return {
+        type: 'text',
+        text: `👑 <b>پنل فوق‌پیشرفته مدیریت ربات</b>\n━━━━━━━━━━━━━━━━━━━━\n👤 این بخش فقط با آیدی عددی <code>567645818</code> در تلگرام فعال است.\n\n📊 <b>امکانات پنل درون ربات:</b>\n• 📊 آمار جامع سرور، دانلودها و کاربران\n• 📢 ارسال و فوروارد همگانی (Broadcast)\n• 🔒 روشن/خاموش کردن قفل جوین اجباری و افزودن کانال\n• 📷 مدیریت سشن اینستاگرام\n• 🌐 ثبت و حذف وب‌هوک و تست پینگ\n• 📜 مشاهده لاگ‌های زنده\n• ✉️ ارسال پیام خصوصی به کاربران\n• ⚙️ تنظیمات و مدیریت ادمین‌ها`,
+        keyboard: [
+          [{ label: '📊 آمار سرور', data: 'adm_stats' }, { label: '📢 ارسال همگانی', data: 'adm_bc' }],
+          [{ label: '🔒 قفل کانال‌ها', data: 'adm_fj' }, { label: '📷 سشن اینستاگرام', data: 'adm_ig' }],
+          [{ label: '🌐 مدیریت وب‌هوک', data: 'adm_wh' }, { label: '📜 لاگ‌های زنده', data: 'adm_logs' }]
         ]
       };
     }

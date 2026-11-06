@@ -46,6 +46,16 @@ app.get('/api/bot/status', (req, res) => {
   });
 });
 
+// Download full project source archive for VPS/AWS deployment
+app.get('/project-src.tar.gz', (req, res) => {
+  const filePath = path.resolve(process.cwd(), 'public/project-src.tar.gz');
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, 'project-src.tar.gz');
+  } else {
+    res.status(404).send('Archive not found');
+  }
+});
+
 // Get Bot Admin & Channels Config (اد اجباری)
 app.get('/api/config', (req, res) => {
   const config = loadBotConfig();

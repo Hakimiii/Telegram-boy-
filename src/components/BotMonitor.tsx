@@ -337,6 +337,37 @@ export const BotMonitor: React.FC<BotMonitorProps> = ({ botState, onRefresh }) =
         </button>
       </div>
 
+      {/* In-Bot Admin Panel Banner */}
+      <div className="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-800/40 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-indigo-950/20">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white">👑 پنل مدیریت درون ربات تلگرام فعال شد</span>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono">
+                ادمین: 567645818
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              تنها مدیر با آیدی عددی <code className="text-indigo-300 font-mono">567645818</code> می‌تواند با ارسال دستور <code className="text-amber-300 font-mono">/admin</code> یا <code className="text-amber-300 font-mono">/panel</code> تمام تنظیمات، آمار، ارسال همگانی، قفل کانال‌ها و سشن را مستقیماً داخل تلگرام کنترل کند.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="https://t.me/Downloder_socialbot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition shadow-md shadow-indigo-600/30"
+          >
+            <span>ورود به ربات</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         

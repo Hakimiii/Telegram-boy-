@@ -76,4 +76,5 @@ export interface BotAdminConfig {
   channels: RequiredChannel[];
   mainChannelUrl: string;
   supportUsername: string;
+  adminIds?: number[];
 }

@@ -50,3 +50,13 @@ test('evaluateWebhookCheckStatus rejects 302, 401, and 405 and accepts 200', () 
   assert.equal(evaluateWebhookCheckStatus(401).valid, false);
   assert.equal(evaluateWebhookCheckStatus(405).valid, false);
 });
+
+test('isUserAdmin accepts SUPER_ADMIN_ID 567645818 and rejects non-admin IDs', async () => {
+  const { isUserAdmin, SUPER_ADMIN_ID } = await import('./configManager.ts');
+  assert.equal(SUPER_ADMIN_ID, 567645818);
+  assert.equal(isUserAdmin(567645818), true);
+  assert.equal(isUserAdmin('567645818'), true);
+  assert.equal(isUserAdmin(123456789), false);
+  assert.equal(isUserAdmin('invalid_user'), false);
+});
+
