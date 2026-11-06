@@ -561,7 +561,19 @@ async function handleIncomingMessage(client: TelegramClient, msg: any) {
   }
 
   // 2. Admin Panel Command / Button Check
-  if (text === '👑 پنل مدیریت ربات (ادمین)' || text === '/admin' || text === '/panel') {
+  const cleanCmd = text.toLowerCase().trim();
+  const isAdminCommand = 
+    cleanCmd === '/admin' || 
+    cleanCmd === 'admin' || 
+    cleanCmd.startsWith('/admin@') || 
+    cleanCmd === '/panel' || 
+    cleanCmd === 'panel' || 
+    cleanCmd.startsWith('/panel@') || 
+    text === '👑 پنل مدیریت ربات (ادمین)' || 
+    text === 'پنل مدیریت' ||
+    text === 'پنل ادمین';
+
+  if (isAdminCommand) {
     if (isUserAdmin(userId)) {
       await sendAdminDashboard(client, chatId);
       return;
@@ -585,33 +597,33 @@ async function handleIncomingMessage(client: TelegramClient, msg: any) {
 3️⃣ برای اینستاگرام و اسپاتیفای فایل فوراً همراه با کپشن ارسال می‌شود. برای یوتیوب کیفیت دلخواه را انتخاب کنید!
 
 ⚡ بدون افت کیفیت و بدون نیاز به فیلترشکن برای دانلود فایل‌ها!`;
-    await client.sendMessage(chatId, helpText, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+    await client.sendMessage(chatId, helpText, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
   if (text === '☕️ قهوه مهمونم کن') {
-    await client.sendMessage(chatId, '❤️ <b>از محبت و حمایت شما سپاسگزاریم!</b>\nبرای حمایت از توسعه ربات، آن را به دوستان و گروه‌های خود معرفی کنید.', { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+    await client.sendMessage(chatId, '❤️ <b>از محبت و حمایت شما سپاسگزاریم!</b>\nبرای حمایت از توسعه ربات، آن را به دوستان و گروه‌های خود معرفی کنید.', { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
   if (text === '💡 ارسال پیشنهادات') {
-    await client.sendMessage(chatId, '💡 <b>ارسال پیشنهادات:</b>\nهر ایده یا قابلیتی که مایلید به ربات اضافه شود را برای ما بنویسید تا بررسی گردد.', { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+    await client.sendMessage(chatId, '💡 <b>ارسال پیشنهادات:</b>\nهر ایده یا قابلیتی که مایلید به ربات اضافه شود را برای ما بنویسید تا بررسی گردد.', { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
   if (text === '📊 آمار من') {
-    await client.sendMessage(chatId, `📊 <b>مشخصات حساب کاربری:</b>\n🆔 شناسه کاربری: <code>${userId}</code>\n👤 نام: ${escapeHtml(userName)}\n📥 دانلودهای موفق سرور: ${state.totalDownloads}`, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+    await client.sendMessage(chatId, `📊 <b>مشخصات حساب کاربری:</b>\n🆔 شناسه کاربری: <code>${userId}</code>\n👤 نام: ${escapeHtml(userName)}\n📥 دانلودهای موفق سرور: ${state.totalDownloads}`, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
   if (text === '🎫 پشتیبانی') {
     const config = loadBotConfig();
-    await client.sendMessage(chatId, `🎫 <b>ارتباط با پشتیبانی:</b>\nدر صورت بروز هرگونه مشکل یا سوال، با آیدی پشتیبانی در ارتباط باشید:\n@${escapeHtml(config.supportUsername || 'admin')}`, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+    await client.sendMessage(chatId, `🎫 <b>ارتباط با پشتیبانی:</b>\nدر صورت بروز هرگونه مشکل یا سوال، با آیدی پشتیبانی در ارتباط باشید:\n@${escapeHtml(config.supportUsername || 'admin')}`, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
   if (text === '🌐 زبان / Language') {
-    await client.sendMessage(chatId, '🌐 زبان فعال ربات: <b>فارسی (Persian) 🇮🇷</b>', { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+    await client.sendMessage(chatId, '🌐 زبان فعال ربات: <b>فارسی (Persian) 🇮🇷</b>', { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
@@ -647,7 +659,7 @@ async function handleIncomingMessage(client: TelegramClient, msg: any) {
 • <b>یوتیوب:</b> https://youtu.be/... یا /watch?v=...
 • <b>اسپاتیفای:</b> https://open.spotify.com/track/...
 • <b>ساندکلود:</b> https://soundcloud.com/...
-• <b>تیک‌تاک:</b> https://vm.tiktok.com/...`, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard() });
+• <b>تیک‌تاک:</b> https://vm.tiktok.com/...`, { parse_mode: 'HTML', reply_markup: getPersistentReplyKeyboard(userId) });
     return;
   }
 
