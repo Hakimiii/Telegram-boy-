@@ -1,0 +1,15 @@
+services:
+  telegram-bot:
+    build: .
+    container_name: social-media-downloader-bot
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - TELEGRAM_BOT_TOKEN=8903893701:AAECN-VTNYymvXWUGEHNdvYb66HUFWl16zI
+      - INSTAGRAM_SESSION_ID=57739827580%3ASVBfwzDtiIYY8e%3A10%3AAYl7l1PJhVjWsOXCbdgX8gadUQnomKvh9l0HE93yUw
+    volumes:
+      - ./bot_config.json:/app/bot_config.json
+      - ./instagram_cookies.txt:/app/instagram_cookies.txt

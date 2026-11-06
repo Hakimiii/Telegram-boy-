@@ -1,0 +1,8 @@
+{
+  "name": "Remix AllMedia Downloader Bot",
+  "description": "A Telegram bot that downloads social media videos in your preferred quality from any shared link.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

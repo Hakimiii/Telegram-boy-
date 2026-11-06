@@ -1,0 +1,7 @@
+name = "social-media-downloader-bot"
+main = "worker.js"
+compatibility_date = "2024-04-01"
+
+[vars]
+BOT_TOKEN = "8903893701:AAECN-VTNYymvXWUGEHNdvYb66HUFWl16zI"
+BOT_USERNAME = "Downloder_socialbot"
