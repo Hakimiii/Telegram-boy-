@@ -20,6 +20,8 @@ const YT_DLP_PATH = path.resolve(process.cwd(), 'bin/yt-dlp');
 const DOWNLOAD_DIR = path.resolve('/tmp/downloads');
 const PRIMARY_COOKIES_PATH = path.resolve(process.cwd(), 'instagram_cookies.txt');
 const BACKUP_COOKIES_PATH = path.resolve('/tmp/instagram_cookies.txt');
+const PRIMARY_YT_COOKIES_PATH = path.resolve(process.cwd(), 'youtube_cookies.txt');
+const BACKUP_YT_COOKIES_PATH = path.resolve('/tmp/youtube_cookies.txt');
 
 export function ensureYtDlpExecutable() {
   if (fs.existsSync(YT_DLP_PATH)) {
@@ -80,18 +82,69 @@ export function hasInstagramCookies(): boolean {
   return fs.existsSync(PRIMARY_COOKIES_PATH) || fs.existsSync(BACKUP_COOKIES_PATH);
 }
 
-function getActiveCookiesPath(): string | null {
+function getActiveInstagramCookiesPath(): string | null {
   if (fs.existsSync(PRIMARY_COOKIES_PATH)) return PRIMARY_COOKIES_PATH;
   if (fs.existsSync(BACKUP_COOKIES_PATH)) return BACKUP_COOKIES_PATH;
   return null;
 }
 
+export function clearYoutubeCookies() {
+  try {
+    if (fs.existsSync(PRIMARY_YT_COOKIES_PATH)) fs.unlinkSync(PRIMARY_YT_COOKIES_PATH);
+    if (fs.existsSync(BACKUP_YT_COOKIES_PATH)) fs.unlinkSync(BACKUP_YT_COOKIES_PATH);
+    console.log('[YouTube] Cookies cleared.');
+  } catch (err) {
+    console.warn('[YouTube] Error clearing cookies:', err);
+  }
+}
+
+export function saveYoutubeCookies(cookiesContent: string): { success: boolean; message: string } {
+  try {
+    const val = cookiesContent.trim();
+    if (!val) {
+      clearYoutubeCookies();
+      return { success: true, message: 'کوکی یوتیوب حذف شد.' };
+    }
+    const cleanContent = val.endsWith('\n') ? val : val + '\n';
+    fs.writeFileSync(PRIMARY_YT_COOKIES_PATH, cleanContent, 'utf-8');
+    try {
+      fs.writeFileSync(BACKUP_YT_COOKIES_PATH, cleanContent, 'utf-8');
+    } catch {}
+    return { success: true, message: 'کوکی‌های یوتیوب با موفقیت ذخیره و فعال شدند.' };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'خطا در ذخیره کوکی یوتیوب' };
+  }
+}
+
+export function hasYoutubeCookies(): boolean {
+  return fs.existsSync(PRIMARY_YT_COOKIES_PATH) || fs.existsSync(BACKUP_YT_COOKIES_PATH);
+}
+
+function getActiveYoutubeCookiesPath(): string | null {
+  if (fs.existsSync(PRIMARY_YT_COOKIES_PATH)) return PRIMARY_YT_COOKIES_PATH;
+  if (fs.existsSync(BACKUP_YT_COOKIES_PATH)) return BACKUP_YT_COOKIES_PATH;
+  return null;
+}
+
 function getCookieArg(url: string): string {
   if (url.includes('instagram.com')) {
-    const cookiesPath = getActiveCookiesPath();
+    const cookiesPath = getActiveInstagramCookiesPath();
     if (cookiesPath) {
       return `--cookies "${cookiesPath}"`;
     }
+  }
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    const cookiesPath = getActiveYoutubeCookiesPath();
+    if (cookiesPath) {
+      return `--cookies "${cookiesPath}"`;
+    }
+  }
+  return '';
+}
+
+function getYoutubeExtraArgs(url: string): string {
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    return '--extractor-args "youtube:player-client=visionos,android,tv,web"';
   }
   return '';
 }
@@ -190,7 +243,8 @@ export async function extractMediaInfo(url: string): Promise<ExtractedMediaInfo>
 
   try {
     const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-    const cmd = `"${YT_DLP_PATH}" --dump-json --js-runtimes node --no-warnings --no-playlist --skip-download ${cookieArg} --user-agent "${userAgent}" "${cleanUrl}"`;
+    const ytArgs = getYoutubeExtraArgs(cleanUrl);
+    const cmd = `"${YT_DLP_PATH}" --dump-json --js-runtimes node --no-warnings --no-playlist --skip-download ${cookieArg} ${ytArgs} --user-agent "${userAgent}" "${cleanUrl}"`;
     let stdoutData = '';
     try {
       const res = await execAsync(cmd, { timeout: 25000 });
@@ -198,7 +252,7 @@ export async function extractMediaInfo(url: string): Promise<ExtractedMediaInfo>
     } catch (cmdErr: any) {
       if (cookieArg) {
         console.warn(`yt-dlp extraction with cookies failed (${cmdErr?.message?.slice(0, 100)}...), retrying without cookies...`);
-        const noCookieCmd = `"${YT_DLP_PATH}" --dump-json --js-runtimes node --no-warnings --no-playlist --skip-download --user-agent "${userAgent}" "${cleanUrl}"`;
+        const noCookieCmd = `"${YT_DLP_PATH}" --dump-json --js-runtimes node --no-warnings --no-playlist --skip-download ${ytArgs} --user-agent "${userAgent}" "${cleanUrl}"`;
         const res = await execAsync(noCookieCmd, { timeout: 25000 });
         stdoutData = res.stdout;
         if (cmdErr?.message?.includes('JSONDecodeError') || cmdErr?.message?.includes('Failed to parse JSON')) {
@@ -365,10 +419,11 @@ export async function downloadMedia(url: string, qualityId: string = 'best_720')
   const ext = isAudio ? 'mp3' : 'mp4';
   const outputTemplate = path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`);
 
-  let formatArg = '';
+  const ytExtra = getYoutubeExtraArgs(cleanUrl);
   const browserUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-  const extraArgs = `${cookieArg} --js-runtimes node --user-agent "${browserUserAgent}" --no-check-certificates --geo-bypass`;
+  const extraArgs = `${cookieArg} ${ytExtra} --js-runtimes node --user-agent "${browserUserAgent}" --no-check-certificates --geo-bypass`;
 
+  let formatArg = '';
   switch (qualityId) {
     case 'best_1080':
       formatArg = '-f "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b" --merge-output-format mp4';

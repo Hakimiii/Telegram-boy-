@@ -23,6 +23,9 @@ import {
   hasInstagramCookies,
   saveInstagramSession,
   clearInstagramCookies,
+  hasYoutubeCookies,
+  saveYoutubeCookies,
+  clearYoutubeCookies,
 } from './mediaDownloader.ts';
 
 interface AdminStepState {
@@ -71,6 +74,7 @@ export async function sendAdminDashboard(
     ? `🟢 فعال (${config.channels.length} کانال)`
     : '🔴 غیرفعال';
   const igStatus = hasInstagramCookies() ? '🟢 فعال (دارای کوکی)' : '⚪ غیرفعال (دانلود عمومی)';
+  const ytStatus = hasYoutubeCookies() ? '🟢 فعال (دارای کوکی)' : '⚪ غیرفعال (دانلود عمومی)';
 
   const text =
 `👑 <b>پنل مدیریت پیشرفته ربات</b>
@@ -85,7 +89,8 @@ export async function sendAdminDashboard(
 • <b>تعداد کل درخواست‌ها:</b> ${state.totalRequests.toLocaleString('fa-IR')}
 • <b>کل کاربران ثبت‌شده:</b> ${usersCount.toLocaleString('fa-IR')} نفر
 • <b>قفل جوین اجباری:</b> ${fjStatus}
-• <b>سشن اینستاگرام:</b> ${igStatus}
+• <b>کوکی اینستاگرام:</b> ${igStatus}
+• <b>کوکی یوتیوب:</b> ${ytStatus}
 • <b>مصرف حافظه RAM:</b> ${memoryMb} مگابایت
 • <b>شناسه عددی شما:</b> <code>${chatId}</code> ${chatId === SUPER_ADMIN_ID ? '⭐️ (مالک اصلی)' : '(مدیر)'}
 
@@ -98,14 +103,17 @@ export async function sendAdminDashboard(
     ],
     [
       { text: '🔒 قفل کانال‌ها (جوین اجباری)', callback_data: 'adm:forcejoin' },
-      { text: '📷 سشن اینستاگرام', callback_data: 'adm:instagram' }
+      { text: '📷 کوکی اینستاگرام', callback_data: 'adm:instagram' }
     ],
     [
-      { text: '🌐 مدیریت وب‌هوک', callback_data: 'adm:webhook' },
-      { text: '📜 لاگ‌های زنده', callback_data: 'adm:logs' }
+      { text: '▶️ کوکی یوتیوب', callback_data: 'adm:youtube' },
+      { text: '🌐 مدیریت وب‌هوک', callback_data: 'adm:webhook' }
     ],
     [
-      { text: '✉️ پیام به کاربر', callback_data: 'adm:dm' },
+      { text: '📜 لاگ‌های زنده', callback_data: 'adm:logs' },
+      { text: '✉️ پیام به کاربر', callback_data: 'adm:dm' }
+    ],
+    [
       { text: '⚙️ تنظیمات و ادمین‌ها', callback_data: 'adm:settings' }
     ],
     [
@@ -471,6 +479,60 @@ ${chListText}
     addLog('پاکسازی سشن', 'کوکی اینستاگرام توسط ادمین پاک شد.');
     await client.answerCallbackQuery(query.id, { text: '✅ سشن اینستاگرام پاک شد.', show_alert: true });
     query.data = 'adm:instagram';
+    return handleAdminCallbackQuery(client, query);
+  }
+
+  // 4.5. YOUTUBE COOKIES SUBMENU
+  if (data === 'adm:youtube') {
+    const hasCookies = hasYoutubeCookies();
+    const text =
+`▶️ <b>مدیریت کوکی‌های یوتیوب (YouTube Cookies):</b>
+━━━━━━━━━━━━━━━━━━━━
+وضعیت فعلی: ${hasCookies ? '🟢 <b>کوکی یوتیوب فعال است</b> (محدودیت Sign in to confirm you\'re not a bot دور زده می‌شود)' : '⚪ <b>بدون کوکی یوتیوب</b> (ویدیوهای عمومی دانلود می‌شوند)'}
+
+💡 <b>چرا کوکی یوتیوب در سرورهای ابری (AWS) لازم است؟</b>
+یوتیوب به دلیل حجم درخواست‌ها از دیتاسنترهای AWS، برخی ویدیوها را با خطای <code>Sign in to confirm you're not a bot</code> مسدود می‌کند. با ارسال فایل یا متن کوکی‌های یوتیوب (فرمت Netscape از افزونه Get cookies.txt LOCALLY در مرورگر)، ۱۰۰٪ ویدیوها و شورتزها دانلود می‌شوند.
+
+🚀 <b>روش‌های دیگر گیت‌هاب:</b>
+می‌توانید روی سرور خود با اجرای <code>docker run -d -p 4416:4416 brainicism/bgutil-ytdlp-pot-provider</code> سرویس تولید خودکار توکن PO را نیز فعال نمایید.`;
+
+    const keyboard = [
+      [{ text: '🔑 تنظیم کوکی جدید یوتیوب', callback_data: 'adm:yt_set' }],
+      ...(hasCookies ? [[{ text: '🗑 پاکسازی کوکی یوتیوب', callback_data: 'adm:yt_clear' }]] : []),
+      [{ text: '🔙 بازگشت به پنل اصلی', callback_data: 'adm:menu' }]
+    ];
+
+    await client.editMessageText(chatId, messageId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+    return true;
+  }
+
+  // Set YouTube Cookies prompt
+  if (data === 'adm:yt_set') {
+    adminSteps.set(chatId, { step: 'awaiting_yt_cookies' });
+    const text =
+`🔑 <b>تنظیم کوکی‌های یوتیوب:</b>
+━━━━━━━━━━━━━━━━━━━━
+لطفاً متن کوکی‌های یوتیوب را با فرمت Netscape (خروجی اکستنشن Get cookies.txt LOCALLY در مرورگر کامپیوتر) ارسال نمایید.
+
+جهت انصراف، کلمه <b>انصراف</b> یا /cancel را ارسال کنید.`;
+
+    const keyboard = [[{ text: '❌ انصراف', callback_data: 'adm:youtube' }]];
+    await client.editMessageText(chatId, messageId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+    return true;
+  }
+
+  // Clear YouTube Cookies
+  if (data === 'adm:yt_clear') {
+    clearYoutubeCookies();
+    addLog('پاکسازی کوکی یوتیوب', 'کوکی‌های یوتیوب توسط ادمین پاک شد.');
+    await client.answerCallbackQuery(query.id, { text: '✅ کوکی‌های یوتیوب پاک شدند.', show_alert: true });
+    query.data = 'adm:youtube';
     return handleAdminCallbackQuery(client, query);
   }
 
@@ -876,6 +938,20 @@ export async function handleAdminMessageStep(
       await client.sendMessage(chatId, '✅ <b>سشن اینستاگرام با موفقیت ثبت و ذخیره شد!</b>', { parse_mode: 'HTML' });
     } else {
       await client.sendMessage(chatId, `❌ <b>خطا در ذخیره سشن:</b> ${escapeHtml(saveRes.message)}`, { parse_mode: 'HTML' });
+    }
+    await sendAdminDashboard(client, chatId);
+    return true;
+  }
+
+  // 4.5. Awaiting YouTube Cookies
+  if (current.step === 'awaiting_yt_cookies') {
+    adminSteps.delete(chatId);
+    const saveRes = saveYoutubeCookies(text);
+    if (saveRes.success) {
+      addLog('تنظیم کوکی یوتیوب', 'کوکی جدید یوتیوب توسط ادمین ثبت شد.');
+      await client.sendMessage(chatId, '✅ <b>کوکی‌های یوتیوب با موفقیت ثبت و ذخیره شدند!</b>\nاکنون تمام ویدیوها و شورتزهای یوتیوب بدون خطای ربات دانلود خواهند شد.', { parse_mode: 'HTML' });
+    } else {
+      await client.sendMessage(chatId, `❌ <b>خطا در ذخیره کوکی:</b> ${escapeHtml(saveRes.message)}`, { parse_mode: 'HTML' });
     }
     await sendAdminDashboard(client, chatId);
     return true;

@@ -60,3 +60,16 @@ test('isUserAdmin accepts SUPER_ADMIN_ID 567645818 and rejects non-admin IDs', a
   assert.equal(isUserAdmin('invalid_user'), false);
 });
 
+test('saveYoutubeCookies and clearYoutubeCookies correctly manage cookie files', async () => {
+  const { saveYoutubeCookies, hasYoutubeCookies, clearYoutubeCookies } = await import('./mediaDownloader.ts');
+  clearYoutubeCookies();
+  assert.equal(hasYoutubeCookies(), false);
+
+  const saveRes = saveYoutubeCookies('# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t2147483647\tSID\tsample_sid\n');
+  assert.equal(saveRes.success, true);
+  assert.equal(hasYoutubeCookies(), true);
+
+  clearYoutubeCookies();
+  assert.equal(hasYoutubeCookies(), false);
+});
+

@@ -44,6 +44,10 @@ export const BotMonitor: React.FC<BotMonitorProps> = ({ botState, onRefresh }) =
   const [instagramSessionInput, setInstagramSessionInput] = useState('');
   const [sessionSaveMsg, setSessionSaveMsg] = useState<{ text: string; success: boolean } | null>(null);
 
+  // YouTube Cookies State
+  const [youtubeCookiesInput, setYoutubeCookiesInput] = useState('');
+  const [youtubeSaveMsg, setYoutubeSaveMsg] = useState<{ text: string; success: boolean } | null>(null);
+
   // 24/7 Always-On & Webhook State
   const [webhookUrlInput, setWebhookUrlInput] = useState('');
   const [loadingWebhook, setLoadingWebhook] = useState(false);
@@ -227,6 +231,29 @@ export const BotMonitor: React.FC<BotMonitorProps> = ({ botState, onRefresh }) =
     } catch (err: any) {
       setSessionSaveMsg({
         text: err?.message || 'خطا در ذخیره سشن اینستاگرام',
+        success: false,
+      });
+    }
+  };
+
+  const handleSaveYoutubeCookies = async (val: string) => {
+    setYoutubeSaveMsg(null);
+    try {
+      const res = await fetch('/api/settings/youtube', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: val.trim() }),
+      });
+      const data = await res.json();
+      setYoutubeSaveMsg({
+        text: data.message,
+        success: data.success,
+      });
+      if (!val) setYoutubeCookiesInput('');
+      onRefresh();
+    } catch (err: any) {
+      setYoutubeSaveMsg({
+        text: err?.message || 'خطا در ذخیره کوکی یوتیوب',
         success: false,
       });
     }
@@ -1148,6 +1175,83 @@ export const BotMonitor: React.FC<BotMonitorProps> = ({ botState, onRefresh }) =
             <p>۱. در کامپیوتر وارد instagram.com شوید.</p>
             <p>۲. کلید F12 را بزنید و به تب Application &gt; Cookies بروید.</p>
             <p>۳. مقدار کوکی sessionid را کپی کرده و اینجا ذخیره کنید.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* YouTube Cookies & Bot-Guard Manager */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-red-500" />
+            <span>تنظیمات کوکی یوتیوب (دور زدن خطای ربات و Sign in to confirm you're not a bot)</span>
+          </h3>
+          <span
+            className={`px-3 py-1 rounded-full text-[11px] font-medium border ${
+              botState?.hasYoutubeCookies
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+            }`}
+          >
+            {botState?.hasYoutubeCookies ? '✓ کوکی یوتیوب فعال و ذخیره است' : 'کوکی یوتیوب تنظیم نشده'}
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          یوتیوب روی سرورهای دیتاسنتر (مثل سرور AWS) برای برخی ویدیوها خطای <code className="text-amber-300 bg-slate-950 px-1 py-0.5 rounded">Sign in to confirm you're not a bot</code> برمی‌گرداند. با قرار دادن کوکی‌های اکانت یوتیوب (فرمت Netscape از اکستنشن مرورگر)، ۱۰۰٪ ویدیوها و شورتزها دانلود خواهند شد.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div className="md:col-span-2 space-y-2">
+            <textarea
+              rows={3}
+              value={youtubeCookiesInput}
+              onChange={(e) => setYoutubeCookiesInput(e.target.value)}
+              placeholder="متن کامل cookies.txt یوتیوب را اینجا بچسبانید (یا در پنل تلگرام /admin بفرستید)..."
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white placeholder-slate-600 focus:outline-none focus:border-red-500"
+              dir="ltr"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleSaveYoutubeCookies(youtubeCookiesInput)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-medium text-xs transition cursor-pointer"
+              >
+                ذخیره کوکی یوتیوب
+              </button>
+
+              {botState?.hasYoutubeCookies && (
+                <button
+                  onClick={() => handleSaveYoutubeCookies('')}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs transition cursor-pointer"
+                >
+                  حذف کوکی فعلی
+                </button>
+              )}
+            </div>
+
+            {youtubeSaveMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                  youtubeSaveMsg.success
+                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
+                }`}
+              >
+                {youtubeSaveMsg.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                )}
+                <span>{youtubeSaveMsg.text}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+            <span className="text-slate-300 font-semibold block">راهکارهای رفع خطای یوتیوب در گیت‌هاب:</span>
+            <p>۱. اکستنشن <code className="text-red-400">Get cookies.txt LOCALLY</code> را در کروم یا فایرفاکس نصب کنید.</p>
+            <p>۲. وارد یوتیوب شوید و کوکی را کپی کرده و اینجا یا در ربات تلگرام ذخیره کنید.</p>
+            <p>۳. یا روی سرور AWS سرویس <code className="text-sky-400">brainicism/bgutil-ytdlp-pot-provider</code> را با داکر اجرا کنید.</p>
           </div>
         </div>
       </div>

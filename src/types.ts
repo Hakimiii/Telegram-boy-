@@ -60,6 +60,7 @@ export interface BotStateResponse {
   }[];
   tokenMasked: string;
   hasInstagramCookies?: boolean;
+  hasYoutubeCookies?: boolean;
   isWebhookMode?: boolean;
   webhookUrl?: string | null;
 }

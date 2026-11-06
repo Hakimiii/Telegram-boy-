@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import { extractMediaInfo, downloadMedia, saveInstagramSession, hasInstagramCookies, identifySongFromMedia, ensureYtDlpExecutable } from './src/services/mediaDownloader.ts';
+import { extractMediaInfo, downloadMedia, saveInstagramSession, hasInstagramCookies, identifySongFromMedia, ensureYtDlpExecutable, saveYoutubeCookies, hasYoutubeCookies, clearYoutubeCookies } from './src/services/mediaDownloader.ts';
 import { startTelegramBot, getBotState, simulateBotResponse, testChannelAccess, handleWebhookUpdate, setBotWebhook, removeBotWebhook, getBotWebhookInfo } from './src/services/telegramBot.ts';
 import { loadBotConfig, saveBotConfig } from './src/services/configManager.ts';
 
@@ -43,6 +43,7 @@ app.get('/api/bot/status', (req, res) => {
   res.json({
     ...state,
     hasInstagramCookies: hasInstagramCookies(),
+    hasYoutubeCookies: hasYoutubeCookies(),
   });
 });
 
@@ -87,6 +88,18 @@ app.post('/api/settings/instagram', (req, res) => {
   const { sessionId } = req.body;
   const result = saveInstagramSession(sessionId || '');
   res.json(result);
+});
+
+// Save or clear YouTube Netscape Cookies
+app.post('/api/settings/youtube', (req, res) => {
+  const { cookies } = req.body;
+  const result = saveYoutubeCookies(cookies || '');
+  res.json(result);
+});
+
+app.delete('/api/settings/youtube', (req, res) => {
+  clearYoutubeCookies();
+  res.json({ success: true, message: 'کوکی‌های یوتیوب با موفقیت پاک شدند.' });
 });
 
 // Restart bot or update token

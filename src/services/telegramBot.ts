@@ -1126,6 +1126,13 @@ ${escapeHtml(reqData.title.slice(0, 120))}
             }
           }
         );
+      } else if (errMsg.includes("Sign in to confirm you're not a bot") || errMsg.includes("confirm you’re not a bot")) {
+        await client.editMessageText(
+          chatId,
+          progressMsg.message_id,
+          `⚠️ <b>یوتیوب به دلیل دانلود از دیتاسنتر ابری نیاز به کوکی ورود دارد.</b>\n\nمدیر ربات می‌تواند با رفتن به بخش <b>👑 پنل مدیریت (/admin) ➔ ▶️ کوکی یوتیوب</b>، کوکی‌های یوتیوب را ثبت کند یا سرویس <code>bgutil-pot-provider</code> را اجرا کند تا تمامی محدودیت‌های یوتیوب برطرف گردد.`,
+          { parse_mode: 'HTML' }
+        );
       } else {
         await client.editMessageText(chatId, progressMsg.message_id, '❌ <b>متاسفانه در دریافت فایل این ویدیو خطایی رخ داد.</b>\nلطفاً مجدد تلاش کنید یا لینک دیگری ارسال فرمایید.', { parse_mode: 'HTML' });
       }
